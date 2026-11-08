@@ -392,8 +392,13 @@ rpcSess.call('Game.getProofState',
   // The editor's Lean client isn't up yet (common on a slow first load). That is warming up,
   // not a crash: marking it crashed re-renders, which asks again at once, and the loop starves
   // the very code that would start the client. Leave the state alone and let the caller retry.
-  if (String(error?.message ?? error).includes('No active Lean client')) {
-    console.info('Lean client not ready yet; will retry')
+  // Lean is still starting or just reloaded the file: also warming up, not a crash.
+  // ('file closed' and empty errors come from requests sent to a file version that is
+  // being replaced; -32801 is "content modified".)
+  const msg = String(error?.message ?? error ?? '')
+  if (msg.includes('No active Lean client') || msg.includes('file closed') || msg.trim() === ''
+      || error?.code === -32801) {
+    console.info('Lean not ready yet; will retry')
     onNoClient?.()
     return
   }

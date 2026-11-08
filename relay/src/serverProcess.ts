@@ -16,6 +16,8 @@ export type GameSession = {
 const environment = process.env.NODE_ENV;
 const isDevelopment = environment === 'development';
 const noBwrap = process.env.NO_BWRAP == "true"
+/** Print every editor<->Lean message (very verbose; slow on Windows terminals). Opt in with LOG_LSP=1. */
+const logLsp = isDevelopment && process.env.LOG_LSP === '1'
 
 export class GameManager {
   queueLength: {}
@@ -201,7 +203,7 @@ export class GameManager {
 
       // backwards compatibility for versions ≤ v4.7.0
       if (usesCustomLeanServer) {
-        if (isDevelopment) { console.log(`CLIENT: ${JSON.stringify(message)}`); }
+        if (logLsp) { console.log(`CLIENT: ${JSON.stringify(message)}`); }
         return message
       }
 
@@ -253,7 +255,7 @@ export class GameManager {
       shiftLines(message, +PROOF_START_LINE)
 
       // Print the message as the server will receive it
-      if (isDevelopment) { console.log(`CLIENT: ${JSON.stringify(message)}`); }
+      if (logLsp) { console.log(`CLIENT: ${JSON.stringify(message)}`); }
 
       return message
     });
@@ -266,7 +268,7 @@ export class GameManager {
       }
 
       // Print the message as the server sends it
-      if (isDevelopment) { console.log(`SERVER: ${JSON.stringify(message)}`); }
+      if (logLsp) { console.log(`SERVER: ${JSON.stringify(message)}`); }
 
       // backwards compatibility for versions ≤ v4.7.0
       if (usesCustomLeanServer) return message
