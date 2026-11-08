@@ -81,9 +81,17 @@ const server = app
     });
   })
   .use('/data/stats', (req, res, next) => {
-    // TODO: this throws on Windows
+    // The stats script needs bash, which Windows doesn't have at /bin/bash: answer "no stats"
+    // there instead of crashing the relay.
+    if (process.platform === 'win32') {
+      res.status(503).send('Server statistics are not available on Windows.')
+      return
+    }
     const statsScriptPath = path.join(__dirname, "..", "..", "scripts", "stats.sh");
     const statsProcess = spawn('/bin/bash', [statsScriptPath, process.pid.toString()])
+    statsProcess.on('error', (err) => {
+      if (!res.headersSent) res.status(503).send(`Server statistics unavailable: ${err.message}`)
+    })
     let outputData = ''
     let errorData = ''
     statsProcess.stdout.on('data', (data) => {
