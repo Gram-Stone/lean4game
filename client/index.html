@@ -10,6 +10,17 @@
       font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
     }
   </style>
+  <!-- Lean widget modules import these by name; point them at the app's own copies. -->
+  <script type="importmap">
+  {
+    "imports": {
+      "react": "/src/widgetDeps/react.ts",
+      "react/jsx-runtime": "/src/widgetDeps/jsx-runtime.ts",
+      "react-dom": "/src/widgetDeps/react-dom.ts",
+      "@leanprover/infoview": "/src/widgetDeps/infoview.ts"
+    }
+  }
+  </script>
 </head>
 
 <body>

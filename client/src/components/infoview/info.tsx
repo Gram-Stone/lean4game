@@ -8,6 +8,7 @@ import { getInteractiveTermGoal, InteractiveDiagnostic, UserWidgetInstance, Widg
 import { basename, DocumentPosition, RangeHelpers, useEvent, usePausableState, discardMethodNotFound,
   mapRpcError, useAsyncWithTrigger, PausableProps } from '../../../../node_modules/vscode-lean4/lean4-infoview/src/infoview/util'
 import { ConfigContext, EditorContext, LspDiagnosticsContext, ProgressContext } from '../../../../node_modules/vscode-lean4/lean4-infoview/src/infoview/contexts'
+import { EnvPosContext } from '../../widgetDeps/infoview'
 import { PanelWidgetDisplay } from '../../../../node_modules/vscode-lean4/lean4-infoview/src/infoview/userWidget'
 import { RpcContext, useRpcSessionAtPos } from '../../../../node_modules/vscode-lean4/lean4-infoview/src/infoview/rpcSessions'
 import { GoalsLocation, Locations, LocationsContext } from '../../../../node_modules/vscode-lean4/lean4-infoview/src/infoview/goalLocation'
@@ -150,8 +151,10 @@ const InfoDisplayContent = React.memo((props: InfoDisplayContentProps) => {
         {userWidgets.map(widget =>
           <details key={`widget::${widget.id}::${widget.range?.toString()}`} open>
             <summary className='mv2 pointer'>{widget.name}</summary>
-            <PanelWidgetDisplay pos={pos} goals={goals ? goals.goals : []}
-              termGoal={termGoal} selectedLocations={selectedLocs} widget={widget}/>
+            <EnvPosContext.Provider value={pos}>
+              <PanelWidgetDisplay pos={pos} goals={goals ? goals.goals : []}
+                termGoal={termGoal} selectedLocations={selectedLocs} widget={widget}/>
+            </EnvPosContext.Provider>
           </details>
         )}
         {nothingToShow && (
