@@ -363,7 +363,8 @@ export function loadGoals(
   worldId: string,
   levelId: number,
   setProof: React.Dispatch<React.SetStateAction<ProofState | undefined>>,
-  setCrashed: React.Dispatch<React.SetStateAction<boolean>>) {
+  setCrashed: React.Dispatch<React.SetStateAction<boolean>>,
+  onNoClient?: () => void) {
 console.info('sending rpc request to load the proof state')
 
 rpcSess.call('Game.getProofState',
@@ -386,6 +387,14 @@ rpcSess.call('Game.getProofState',
 ).catch((error) => {
   if (error === 'No connection to Lean') {
     console.warn(error)
+    return
+  }
+  // The editor's Lean client isn't up yet (common on a slow first load). That is warming up,
+  // not a crash: marking it crashed re-renders, which asks again at once, and the loop starves
+  // the very code that would start the client. Leave the state alone and let the caller retry.
+  if (String(error?.message ?? error).includes('No active Lean client')) {
+    console.info('Lean client not ready yet; will retry')
+    onNoClient?.()
     return
   }
   setCrashed(true)

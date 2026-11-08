@@ -527,13 +527,18 @@ export function TypewriterInterface() {
              names: new Map<string, string>(lemmas.map((t: any) => [t.name, t.displayName])) }
   }, [clickLevelInfo, clickInventory])
 
+  // Bumped once a second while the Lean client is still starting, to ask for the goal again.
+  const [leanRetry, setLeanRetry] = React.useState(0)
   React.useEffect(() => {
     if (!effectiveUri) {
       return
     }
     setCrashed(false)
-    loadGoals(rpcSess, effectiveUri, worldId!, levelId!, setProof, setCrashed)
-  }, [rpcSess, effectiveUri, worldId, levelId, setProof, setCrashed])
+    let timer: ReturnType<typeof setTimeout> | undefined
+    loadGoals(rpcSess, effectiveUri, worldId!, levelId!, setProof, setCrashed,
+      () => { timer = setTimeout(() => setLeanRetry(n => n + 1), 1000) })
+    return () => { if (timer) clearTimeout(timer) }
+  }, [rpcSess, effectiveUri, worldId, levelId, setProof, setCrashed, leanRetry])
 
   /** Delete all proof lines starting from a given line.
   * Note that the first line (i.e. deleting everything) is `1`!
