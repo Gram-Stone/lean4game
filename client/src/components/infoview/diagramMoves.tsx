@@ -216,10 +216,12 @@ function useRuleDocs(gameId: string | undefined, rules: string[]) {
  * With `readOnly`, only the pictures are shown: the level is played by typing.
  */
 export function DiagramMoves({ rpcSess, goal, rules, ruleNames, onMove, disabled, readOnly = false,
-    onReset, moveCount = 0 }: {
+    onReset, moveCount = 0, onStale }: {
   rpcSess: RpcSessionAtPos, goal: any, rules: string[], ruleNames: Map<string, string>,
   onMove: (tactic: string) => void, disabled: boolean, readOnly?: boolean,
-  onReset?: () => void, moveCount?: number }) {
+  onReset?: () => void, moveCount?: number,
+  /** Ask the page for a fresh goal: this one's references expired (Lean reloaded the file). */
+  onStale?: () => void }) {
   const [result, setResult] = React.useState<MovesResult | null>(null)
   const [error, setError] = React.useState<string | null>(null)
   const [sel, setSel] = React.useState<Selection>({ lhs: new Set(), rhs: new Set() })
@@ -232,6 +234,7 @@ export function DiagramMoves({ rpcSess, goal, rules, ruleNames, onMove, disabled
 
   // The infoview often reloads the same goal; keep the player's selection unless the picture changed.
   const shown = React.useRef<string>('')
+  const staleTries = React.useRef(0)
   React.useEffect(() => {
     let cancelled = false
     setError(null)
@@ -241,9 +244,21 @@ export function DiagramMoves({ rpcSess, goal, rules, ruleNames, onMove, disabled
         const key = JSON.stringify((r as MovesResult).current)
         if (key !== shown.current) { setSel({ lhs: new Set(), rhs: new Set() }); setHint(null) }
         shown.current = key
+        staleTries.current = 0
         setResult(r as MovesResult)
       })
-      .catch((e: any) => { if (!cancelled) setError(String(e?.message ?? e)) })
+      .catch((e: any) => {
+        if (cancelled) return
+        const msg = String(e?.message ?? e)
+        // The goal came from a file version Lean has since replaced: not an error to show.
+        // Ask for a fresh goal (a few times at most) and keep saying "Drawing the goal…".
+        if (/RPC reference|Cannot decode params|file closed|Outdated RPC session/i.test(msg) && staleTries.current < 5) {
+          staleTries.current++
+          setTimeout(() => onStale?.(), 400)
+          return
+        }
+        setError(msg)
+      })
     return () => { cancelled = true }
   }, [rpcSess, goal, rulesKey, readOnly])
 

@@ -698,12 +698,12 @@ export function TypewriterInterface() {
                   {i == proof?.steps.length - (lastStepHasErrors(proof) ? 2 : 1) && model && clickRules && step.goals.length > 0 &&
                     <DiagramMoves rpcSess={rpcSess} goal={step.goals[0].goal} rules={clickRules.rules}
                       ruleNames={clickRules.names} onMove={setPendingCommand} disabled={!!pendingCommand}
-                      onReset={() => deleteProof(1)(undefined)} moveCount={Math.max(0, (proof?.steps.length ?? 1) - 1)} />
+                      onReset={() => deleteProof(1)(undefined)} onStale={() => setLeanRetry(n => n + 1)} moveCount={Math.max(0, (proof?.steps.length ?? 1) - 1)} />
                   }
                   {i == proof?.steps.length - (lastStepHasErrors(proof) ? 2 : 1) && model && !clickRules && step.goals.length > 0 &&
                     <DiagramMoves rpcSess={rpcSess} goal={step.goals[0].goal} rules={[]} readOnly
                       ruleNames={new Map()} onMove={() => {}} disabled={true}
-                      onReset={() => deleteProof(1)(undefined)} moveCount={Math.max(0, (proof?.steps.length ?? 1) - 1)} />
+                      onReset={() => deleteProof(1)(undefined)} onStale={() => setLeanRetry(n => n + 1)} moveCount={Math.max(0, (proof?.steps.length ?? 1) - 1)} />
                   }
                   {!(isLastStepWithErrors(proof, i)) && (() => {
                     const goals = <GoalsTabs proofStep={step} last={i == proof?.steps.length - (lastStepHasErrors(proof) ? 2 : 1)} onClick={toggleSelectStep(i)} onGoalChange={i == proof?.steps.length - (lastStepHasErrors(proof) ? 2 : 1) ? (n) => setDisableInput(n > 0) : (n) => {}}/>
