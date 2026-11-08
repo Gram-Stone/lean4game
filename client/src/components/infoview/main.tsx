@@ -31,6 +31,9 @@ import { CircularProgress } from '@mui/material';
 import { GameHint, InteractiveGoalsWithHints, ProofState } from './rpc_api';
 import { Hint, Hints, MoreHelpButton, filterHints } from '../hints';
 import { DocumentPosition } from '../../../../node_modules/vscode-lean4/lean4-infoview/src/infoview/util';
+import { UserWidgetInstance, Widget_getWidgets, RpcSessionAtPos } from '@leanprover/infoview-api';
+import { PanelWidgetDisplay } from '../../../../node_modules/vscode-lean4/lean4-infoview/src/infoview/userWidget';
+import { EnvPosContext } from '../../widgetDeps/infoview';
 import { DiagnosticSeverity } from 'vscode-languageclient';
 import { useTranslation } from 'react-i18next';
 import path from 'path';
@@ -378,6 +381,26 @@ function Command({ proof, i, deleteProof }: { proof: ProofState, i: number, dele
   }
 }
 
+/** Panel widgets (such as Mathlib's string diagrams) for the current goals in typing mode. */
+function StepWidgets({ rpcSess, pos, goals }: { rpcSess: RpcSessionAtPos, pos: DocumentPosition, goals: any[] }) {
+  const [widgets, setWidgets] = React.useState<UserWidgetInstance[]>([])
+  React.useEffect(() => {
+    let cancelled = false
+    Widget_getWidgets(rpcSess, pos)
+      .then(res => { if (!cancelled) setWidgets(res?.widgets ?? []) })
+      .catch(() => { if (!cancelled) setWidgets([]) })
+    return () => { cancelled = true }
+  }, [rpcSess, pos.uri, pos.line, pos.character, goals])
+  if (widgets.length == 0 || goals.length == 0) return <></>
+  return <div className="step-widgets">
+    {widgets.map(widget =>
+      <EnvPosContext.Provider key={`widget::${widget.id}`} value={pos}>
+        <PanelWidgetDisplay pos={pos} goals={goals} termGoal={undefined}
+          selectedLocations={[]} widget={widget} />
+      </EnvPosContext.Provider>)}
+  </div>
+}
+
 /** The tabs of goals that lean ahs after the command of this step has been processed */
 function GoalsTabs({ proofStep, last, onClick, onGoalChange=(n)=>{}}: { proofStep: InteractiveGoalsWithHints, last : boolean, onClick? : any, onGoalChange?: (n?: number) => void }) {
   let { t } = useTranslation()
@@ -632,6 +655,12 @@ export function TypewriterInterface() {
                   {/* <GoalsTabs proofStep={step} last={i == proof?.steps.length - (lastStepErrors ? 2 : 1)} onClick={toggleSelectStep(i)} onGoalChange={i == proof?.steps.length - 1 - withErr ? (n) => setDisableInput(n > 0) : (n) => {}}/> */}
                   {!(isLastStepWithErrors(proof, i)) &&
                     <GoalsTabs proofStep={step} last={i == proof?.steps.length - (lastStepHasErrors(proof) ? 2 : 1)} onClick={toggleSelectStep(i)} onGoalChange={i == proof?.steps.length - (lastStepHasErrors(proof) ? 2 : 1) ? (n) => setDisableInput(n > 0) : (n) => {}}/>
+                  }
+                  {i == proof?.steps.length - (lastStepHasErrors(proof) ? 2 : 1) && model &&
+                    <StepWidgets rpcSess={rpcSess}
+                      pos={{ uri: effectiveUri, line: model.getLineCount() - 1,
+                             character: model.getLineMaxColumn(model.getLineCount()) - 1 }}
+                      goals={step.goals.map(g => g.goal)} />
                   }
                   {mobile && i == proof?.steps.length - 1 &&
                     <MoreHelpButton selected={null} />
