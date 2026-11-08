@@ -33,15 +33,15 @@ const NSPIRAL = 12 // world size if NMAX has been passed and need to spiral.
 
 const MINFONT = 12
 
-// colours
-const grey = '#999'
-const lightgrey = '#bbb'
-const green = 'green' // 118a11?
-const lightgreen = '#139e13'
-const blue = '#1976d2'
-const darkgrey = '#868686'
-const darkgreen = '#0e770e'
-const darkblue = '#1667b8'
+// colours (the game's ink-and-paper palette: ink for open, green for done, pale wire for locked)
+const grey = '#b9c4cf'
+const lightgrey = '#d4dce4'
+const green = '#1d8657'
+const lightgreen = '#2f9e6b'
+const blue = '#1e3a5c'
+const darkgrey = '#9aa7b4'
+const darkgreen = '#166b45'
+const darkblue = '#12263d'
 
 
 /** svg object for a level in the game tree */

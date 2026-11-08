@@ -26,18 +26,29 @@
 .dm-hit { fill: transparent; cursor: pointer; outline: none; }
 .dm-hit:focus-visible { stroke: var(--dm-fit); stroke-width: 2; stroke-dasharray: 3 3; }
 .dm-status { margin: 10px 2px 8px; font-size: 14px; }
-.dm-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
+.dm-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; }
 .dm-card { background: var(--dm-sheet); border: 1px solid var(--dm-line); border-radius: 10px; padding: 10px;
   display: grid; gap: 6px; text-align: left; font: inherit; color: inherit; }
 .dm-card.fits { border-color: var(--dm-fit); box-shadow: 0 0 0 3px var(--dm-fit-soft); }
 .dm-card-top { display: flex; justify-content: space-between; gap: 6px; align-items: baseline; }
-.dm-chip { font-size: 11.5px; color: var(--dm-muted); }
+.dm-chip { font-size: 11.5px; color: var(--dm-muted); white-space: nowrap; flex: none; }
 .dm-card.fits .dm-chip { color: var(--dm-fit); font-weight: 600; }
 .dm-sub { font-size: 12px; color: var(--dm-muted); }
-.dm-card button { justify-self: start; font: 500 13px/1 system-ui, sans-serif; padding: 7px 10px; border-radius: 8px;
+.dm-card button { justify-self: start; font: 500 13px/1 var(--pmc-body, system-ui), sans-serif; padding: 7px 10px; border-radius: 8px;
   border: 1px solid var(--dm-line); background: transparent; color: var(--dm-ink); cursor: pointer; }
 .dm-card.fits button { border-color: var(--dm-fit); color: var(--dm-fit); }
 .dm-card button:disabled { opacity: 0.45; cursor: not-allowed; }
 button.dm-card { cursor: pointer; }
 button.dm-card span { font-size: 12.5px; color: var(--dm-muted); }
 @media (max-width: 560px) { .dm-equation { grid-template-columns: minmax(0, 1fr); } .dm-eq { justify-self: center; } }
+
+/* A new picture settles in after each move. */
+@keyframes dm-settle { from { opacity: .35; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.dm-svg { animation: dm-settle 300ms ease-out; }
+@media (prefers-reduced-motion: reduce) { .dm-svg { animation: none; } }
+.dm-panel { font-family: var(--pmc-body, inherit); }
+.dm-side figcaption { font-family: var(--pmc-display, Georgia, serif); font-style: italic; }
+/* Both sides share one height; each picture sits in the middle of its sheet. */
+.dm-equation { align-items: stretch; }
+.dm-side { display: flex; flex-direction: column; }
+.dm-side .dm-svg { margin: auto; }

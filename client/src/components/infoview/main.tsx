@@ -362,7 +362,18 @@ const goalFilter = {
 }
 
 /** The display of a single entered lean command */
-function Command({ proof, i, deleteProof }: { proof: ProofState, i: number, deleteProof: any }) {
+/** A diagram move (`diag_rw [rule]`, `same_diagram`) shown by its rule's friendly name. */
+function prettyMove(command: string, names?: Map<string, string>): string | null {
+  if (command.trim() === 'same_diagram') return 'Same picture'
+  const m = command.trim().match(/^diag_rw\s+(\d+\s+)?\[(←\s*)?([^\]\s]+)\]$/)
+  if (!m) return null
+  const rule = m[3]
+  const name = names?.get(rule) ?? (rule.includes('.') ? rule.split('.').pop() : `your hypothesis ${rule}`)
+  return `${name}${m[2] ? ' (backwards)' : ''}`
+}
+
+function Command({ proof, i, deleteProof, names }: { proof: ProofState, i: number, deleteProof: any,
+    names?: Map<string, string> }) {
   let {t} = useTranslation()
 
   // The first step will always have an empty command
@@ -376,7 +387,12 @@ function Command({ proof, i, deleteProof }: { proof: ProofState, i: number, dele
     </div>
   } else {
     return <div className="command">
-      <div className="command-text">{proof?.steps[i].command}</div>
+      {(() => {
+        const cmd = proof?.steps[i].command, pretty = prettyMove(cmd, names)
+        return pretty
+          ? <div className="command-text command-move" title={cmd}><span className="move-arrow" aria-hidden="true">↻</span> {pretty}</div>
+          : <div className="command-text">{cmd}</div>
+      })()}
       <Button  className="undo-button btn btn-inverted" title={t("Retry proof from here")} onClick={deleteProof}>
         <FontAwesomeIcon icon={faDeleteLeft} />&nbsp;{t("Retry")}
       </Button>
@@ -654,7 +670,7 @@ export function TypewriterInterface() {
               //   </div>
               // } else {
                 return <div key={`proof-step-${i}`} className={`step step-${i}` + (selectedStep == i ? ' selected' : '')}>
-                  <Command proof={proof} i={i} deleteProof={deleteProof(i)} />
+                  <Command proof={proof} i={i} deleteProof={deleteProof(i)} names={clickRules?.names} />
                   <Errors errors={step.diags} typewriterMode={true} />
                   {mobile && i == 0 && gameInfo?.introduction &&
                     introText?.filter(it => it.trim()).map(((it, i) =>
@@ -669,13 +685,17 @@ export function TypewriterInterface() {
                       selected={selectedStep} toggleSelection={toggleSelectStep(i)}/>
                   }
                   {/* <GoalsTabs proofStep={step} last={i == proof?.steps.length - (lastStepErrors ? 2 : 1)} onClick={toggleSelectStep(i)} onGoalChange={i == proof?.steps.length - 1 - withErr ? (n) => setDisableInput(n > 0) : (n) => {}}/> */}
-                  {!(isLastStepWithErrors(proof, i)) &&
-                    <GoalsTabs proofStep={step} last={i == proof?.steps.length - (lastStepHasErrors(proof) ? 2 : 1)} onClick={toggleSelectStep(i)} onGoalChange={i == proof?.steps.length - (lastStepHasErrors(proof) ? 2 : 1) ? (n) => setDisableInput(n > 0) : (n) => {}}/>
-                  }
                   {i == proof?.steps.length - (lastStepHasErrors(proof) ? 2 : 1) && model && clickRules && step.goals.length > 0 &&
                     <DiagramMoves rpcSess={rpcSess} goal={step.goals[0].goal} rules={clickRules.rules}
                       ruleNames={clickRules.names} onMove={setPendingCommand} disabled={!!pendingCommand} />
                   }
+                  {!(isLastStepWithErrors(proof, i)) && (() => {
+                    const goals = <GoalsTabs proofStep={step} last={i == proof?.steps.length - (lastStepHasErrors(proof) ? 2 : 1)} onClick={toggleSelectStep(i)} onGoalChange={i == proof?.steps.length - (lastStepHasErrors(proof) ? 2 : 1) ? (n) => setDisableInput(n > 0) : (n) => {}}/>
+                    // When the level can be played by clicking, the picture leads and Lean's goal folds away.
+                    return clickRules && step.goals.length > 0
+                      ? <details className="lean-drawer"><summary>Lean goal</summary>{goals}</details>
+                      : goals
+                  })()}
                   {i == proof?.steps.length - (lastStepHasErrors(proof) ? 2 : 1) && model && !clickRules &&
                     <StepWidgets rpcSess={rpcSess}
                       pos={{ uri: effectiveUri, line: model.getLineCount() - 1,

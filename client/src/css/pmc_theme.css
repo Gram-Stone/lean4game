@@ -1,0 +1,185 @@
+/*
+ * "Copy, Discard, Observe" theme for the lean4game client.
+ * A calm paper-and-ink look: serif headings, a clean sans for text, ink-blue wires,
+ * an amber marker for selection. Loaded last; selectors are prefixed with `body`
+ * so they win over the stock stylesheets without !important.
+ */
+
+:root {
+  --pmc-paper: #eef2f5;
+  --pmc-sheet: #fbfcfd;
+  --pmc-ink: #17222e;
+  --pmc-muted: #586675;
+  --pmc-line: #d4dce4;
+  --pmc-wire: #1e3a5c;
+  --pmc-marker: #f1b62f;
+  --pmc-marker-soft: rgba(241, 182, 47, 0.32);
+  --pmc-fit: #2c5fc7;
+  --pmc-fit-soft: rgba(44, 95, 199, 0.10);
+  --pmc-ok: #1d8657;
+  --pmc-ok-soft: rgba(29, 134, 87, 0.12);
+  --pmc-display: "Spectral", "Iowan Old Style", Georgia, serif;
+  --pmc-body: "Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --pmc-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* Re-point lean4game's own variables at the new palette. */
+  --clr-primary: var(--pmc-wire);
+  --clr-primary-dark: #12263d;
+  --clr-light-gray: var(--pmc-line);
+  --clr-dark-gray: #9aa7b4;
+  --clr-darker-gray: var(--pmc-muted);
+  --ff-primary: var(--pmc-body);
+}
+
+body { font-family: var(--pmc-body); color: var(--pmc-ink); background: var(--pmc-paper); }
+body .font-code, body code, body .lean-code { font-family: var(--pmc-mono); }
+
+/* Top bar: a quiet strip of paper instead of a blue slab. */
+body .app-bar {
+  background: var(--pmc-sheet);
+  border-bottom: 1px solid var(--pmc-line);
+  filter: none;
+  padding: .7em 1.1em;
+}
+body .app-bar-title, body .app-bar-subtitle {
+  color: var(--pmc-ink);
+  font-family: var(--pmc-display);
+  font-weight: 600;
+  font-size: 1.35rem;
+}
+body .app-bar .btn, body .app-bar .nav-btns .btn {
+  background: transparent;
+  color: var(--pmc-wire);
+  border: 1px solid var(--pmc-line);
+  border-radius: 8px;
+  box-shadow: none;
+}
+body .app-bar .btn:hover { background: var(--pmc-fit-soft); }
+body .app-bar .btn[disabled], body .app-bar .btn-disabled { color: #b4bec8; background: transparent; }
+body .app-bar svg { color: var(--pmc-wire); }
+
+/* The empty world-image slot above the proof: blend into the sheet. */
+body .world-image-container.empty, body .typewriter-interface .content { background-color: var(--pmc-sheet); }
+body .world-image-container.empty { display: none; }
+body .gutter { background-color: var(--pmc-line); }
+
+/* Buttons */
+body .btn {
+  background: var(--pmc-wire);
+  border-radius: 8px;
+  font-family: var(--pmc-body);
+  font-weight: 500;
+}
+body .btn-inverted { background: var(--pmc-sheet); color: var(--pmc-wire); border: 1px solid var(--pmc-line); }
+body .btn-inverted:hover { background: var(--pmc-fit-soft); color: var(--pmc-wire); }
+
+/* Panels sit on paper; the working sheet is lighter. */
+body .main-panel, body .exercise-panel, body .inventory-panel, body .doc-panel, body .chat-panel,
+body .introduction-panel { background: var(--pmc-paper); }
+body .exercise, body .exercise-statement { background: var(--pmc-sheet); }
+body .exercise { border-left: 1px solid var(--pmc-line); border-right: 1px solid var(--pmc-line); }
+body .gutter { background-color: var(--pmc-line); }
+
+/* Story and hints: margin notes, not alerts. */
+body .message { border-radius: 10px; padding: 10px 14px; line-height: 1.5; }
+body .message.information, body .message.info {
+  background: var(--pmc-sheet);
+  color: var(--pmc-ink);
+  border: 1px solid var(--pmc-line);
+  border-left: 3px solid var(--pmc-wire);
+}
+body .message.warning { background: #fff6dd; color: #6b4a00; border: 1px solid #f0d58a; }
+body .message.error { background: #fdecec; color: #8a1c1c; border: 1px solid #f2c0c0; }
+body .chat .recent { box-shadow: 0 0 0 2px var(--pmc-fit-soft); border-left-color: var(--pmc-fit); }
+body .exercise .step.selected .goal-tabs, body .chat .selected { box-shadow: 0 0 0 2px var(--pmc-fit-soft); }
+body .markdown code {
+  color: var(--pmc-wire);
+  background: rgba(30, 58, 92, 0.07);
+  font-family: var(--pmc-mono);
+}
+body .markdown h1, body .markdown h2, body .markdown h3, body .markdown h4 {
+  font-family: var(--pmc-display); font-weight: 600; color: var(--pmc-ink);
+}
+
+/* The statement line above the proof */
+body .exercise-statement { color: var(--pmc-muted); font-size: .85rem; }
+
+/* Goal tabs and titles */
+body .goals-section-title, body .hyp-group-title, body .goal-title { font-family: var(--pmc-body); }
+body .tab-bar { border-bottom: 1px solid var(--pmc-line); }
+body .tab-bar.current .tab.active { color: var(--pmc-ink); border-bottom: 3px solid var(--pmc-wire); }
+body .tab.active { border-bottom-color: var(--pmc-wire); }
+body .tab-bar.major .tab { font-family: var(--pmc-display); font-weight: 600; }
+body .tab.new { background-image: linear-gradient(to bottom, transparent, var(--pmc-marker-soft)); }
+body .tab.new:not(.active) { border-bottom-color: var(--pmc-marker); }
+
+/* Inventory: rule chips */
+body .inventory .item {
+  background: var(--pmc-sheet);
+  border: 1px solid var(--pmc-line);
+  border-radius: 7px;
+  color: var(--pmc-ink);
+  font-family: var(--pmc-body);
+}
+body .inventory .item.new { background: var(--pmc-marker-soft); border-color: var(--pmc-marker); }
+body .inventory .item.locked:not(.enabled) { color: #b4bec8; border-style: dashed; }
+
+/* Past moves: a quiet proof log. */
+body .exercise .command {
+  background: transparent;
+  border-bottom: 1px solid var(--pmc-line);
+  border-radius: 0;
+}
+body .exercise .command-text { font-family: var(--pmc-mono); color: var(--pmc-ink); }
+body .exercise .command-text.command-move { font-family: var(--pmc-body); font-weight: 500; }
+body .move-arrow { color: var(--pmc-fit); margin-right: .25em; }
+body .undo-button.btn { font-size: .8rem; }
+
+/* Lean's text goal, folded away when the level can be played by clicking. */
+body .lean-drawer { margin: 6px 0 2px; }
+body .lean-drawer > summary {
+  cursor: pointer;
+  width: max-content;
+  font-size: .8rem;
+  font-weight: 500;
+  color: var(--pmc-muted);
+  padding: 3px 10px;
+  border: 1px solid var(--pmc-line);
+  border-radius: 999px;
+  background: var(--pmc-sheet);
+  list-style: none;
+}
+body .lean-drawer > summary::-webkit-details-marker { display: none; }
+body .lean-drawer > summary::before { content: "▸ "; }
+body .lean-drawer[open] > summary::before { content: "▾ "; }
+body .lean-drawer > summary:focus-visible { outline: 2px solid var(--pmc-fit); outline-offset: 2px; }
+body .lean-drawer[open] > summary { margin-bottom: 6px; }
+
+/* Typewriter: a sheet with an ink border instead of a blue box. */
+body .typewriter {
+  background: var(--pmc-sheet);
+  border: 1px solid var(--pmc-line);
+  border-radius: 10px;
+}
+body .typewriter .typewriter-input-wrapper { border-radius: 6px; border: 1px solid var(--pmc-line); }
+body .typewriter button { background: var(--pmc-wire); color: white; border-radius: 7px; }
+body .typewriter.disabled { background: var(--pmc-paper); }
+
+/* Level complete */
+body .level-completed {
+  font-family: var(--pmc-display);
+  font-weight: 600;
+  color: var(--pmc-ok);
+  background: var(--pmc-ok-soft);
+  border: 1px solid rgba(29, 134, 87, 0.3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body *, body *::before, body *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+/* Read the proof from the top down: no spacer pushing it against the input line. */
+body .typewriter-interface .content .tmp-pusher { flex: 0 0 0; min-height: 0; }
+
+/* "Level completed" note from Lean: set it like a result, not a log line. */
+body .exercise .message.information pre { font-family: var(--pmc-body); font-size: 1rem; white-space: pre-wrap; }
