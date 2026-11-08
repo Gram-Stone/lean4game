@@ -23,6 +23,10 @@ export const inventoryOverviewAtom = atomWithQuery<InventoryOverview>((get) => {
   }
 })
 
+/** Doc keys are fresh `[type, name]` arrays on every render; compare them by value, or each render
+ * creates a new query atom, which re-renders, and the documentation panel loops forever. */
+const sameDocKey = (a: [InventoryTab, string], b: [InventoryTab, string]) => a[0] === b[0] && a[1] === b[1]
+
 export const docAtomFamily = atomFamily((key: [InventoryTab, string]) => atomWithQuery<Doc>((get) => {
   const gameId = get(gameIdAtom)
   const type = key[0]
@@ -34,14 +38,15 @@ export const docAtomFamily = atomFamily((key: [InventoryTab, string]) => atomWit
       return res.json()
     },
   }
-}))
+}), sameDocKey)
 
 export const docAtomLegacyFamily = atomFamily((key: [InventoryTab, string]) => atomWithQuery<Doc>((get) => {
   const gameId = get(gameIdAtom)
   const type = key[0]
   const name = key[1]
   return {
-    queryKey: ['doc', gameId, type, name],
+    // A key of its own: it fetches a different file from `docAtomFamily`.
+    queryKey: ['doc-legacy', gameId, type, name],
     queryFn: async () => {
       const caps = capitalizeFirstLetter(type)
       const legacy = caps == "Theorem" ? "Lemma" : caps
@@ -49,7 +54,7 @@ export const docAtomLegacyFamily = atomFamily((key: [InventoryTab, string]) => a
       return res.json()
     },
   }
-}))
+}), sameDocKey)
 
 function capitalizeFirstLetter(val: InventoryTab) {
   return String(val).charAt(0).toUpperCase() + String(val).slice(1);
