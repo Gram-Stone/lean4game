@@ -24,31 +24,64 @@ type Selection = { lhs: Set<string>, rhs: Set<string> }
 
 const ROW = 70, COL = 56, PAD = 34, LEG = 14
 
-/** Wires run straight down in their column; they shift sideways only at boxes and pass-throughs. */
+/**
+ * Lay the diagram out top to bottom. Each row takes the positions of the wires coming into it;
+ * a box sits under its inputs, its outputs fan out beneath it, and neighbouring wires are pushed
+ * apart only where they would collide. So wires drop straight down unless a box makes them move.
+ */
 function layout(d: Diagram) {
-  const rows = Math.max(0, ...d.nodes.map(n => n.row))
-  const cols = Math.max(1, ...d.nodes.map(n => n.col + n.nIn),
-    ...d.nodes.map(n => n.colOut + n.nOut))
-  const y = (row: number) => PAD + row * ROW
-  const x = (col: number) => PAD + col * COL
-  /** Where a box sits: centred over its input and output wires. */
-  const center = (n: DNode) => {
-    const ports = [...Array(n.nIn).keys()].map(i => x(n.col + i))
-      .concat([...Array(n.nOut).keys()].map(k => x(n.colOut + k)))
-    return ports.length ? ports.reduce((a, b) => a + b, 0) / ports.length : x(n.col)
+  const rowNums = [...new Set(d.nodes.map(n => n.row))].sort((a, b) => a - b)
+  const rowIndex = new Map(rowNums.map((r, i) => [r, i]))
+  const y = (row: number) => PAD + (rowIndex.get(row) ?? 0) * ROW
+  const ins = new Map<string, number[]>(), outs = new Map<string, number[]>(), ctr = new Map<string, number>()
+  const segs: { x: number, y1: number, y2: number }[] = []
+  let above: number[] = []
+  rowNums.forEach((r, ri) => {
+    const row = d.nodes.filter(n => n.row === r).sort((a, b) => a.col - b.col || a.colOut - b.colOut)
+    const nIn = row.reduce((s, n) => s + n.nIn, 0)
+    const xin = above.length === nIn ? above : [...Array(nIn).keys()].map(i => PAD + i * COL)
+    const below: number[] = []
+    let last = -Infinity
+    for (const n of row) {
+      const myIn = xin.slice(n.col, n.col + n.nIn)
+      let c = myIn.length ? myIn.reduce((a, b) => a + b, 0) / myIn.length
+        : last > -Infinity ? last + COL : (xin[n.col] ?? PAD + COL) - COL
+      const want = [...Array(n.nOut).keys()].map(k => c + (k - (n.nOut - 1) / 2) * COL)
+      const got = want.map(w => { const v = Math.max(w, (below.length ? below[below.length - 1] : -Infinity) + COL); below.push(v); return v })
+      if (!myIn.length && got.length) c = got.reduce((a, b) => a + b, 0) / got.length
+      ins.set(n.id, myIn); outs.set(n.id, got); ctr.set(n.id, c)
+      last = Math.max(c, ...got)
+    }
+    if (ri + 1 < rowNums.length)
+      for (const xv of below) segs.push({ x: xv, y1: y(r) + LEG, y2: y(rowNums[ri + 1]) - LEG })
+    above = below
+  })
+  // Shift everything so the leftmost thing sits at the margin.
+  const all = [...ctr.values(), ...[...ins.values()].flat(), ...[...outs.values()].flat()]
+  const lo = all.length ? Math.min(...all) : PAD, hi = all.length ? Math.max(...all) : PAD
+  const dx = PAD + 10 - lo
+  const sh = (v: number) => v + dx
+  return {
+    y, segs: segs.map(sg => ({ ...sg, x: sh(sg.x) })),
+    center: (n: DNode) => sh(ctr.get(n.id) ?? 0),
+    inX: (n: DNode) => (ins.get(n.id) ?? []).map(sh),
+    outX: (n: DNode) => (outs.get(n.id) ?? []).map(sh),
+    width: hi - lo + 2 * (PAD + 10), height: PAD * 2 + Math.max(0, rowNums.length - 1) * ROW,
   }
-  return { x, y, center, width: PAD * 2 + (cols - 1) * COL, height: PAD * 2 + rows * ROW }
 }
 
-type Shape = { kind: 'dot' | 'cap' | 'state' | 'box', half: number, width: number }
+type Shape = { kind: 'dot' | 'cap' | 'state' | 'box' | 'braid', half: number, width: number }
 function shapeOf(n: DNode, spread: number): Shape {
   if (n.label === 'Δ') return { kind: 'dot', half: 0, width: 12 }
   if (n.label === 'ε') return { kind: 'cap', half: 0, width: 20 }
+  if (/^\(β_ .*\)\.(hom|inv)$/.test(n.label) && n.nIn === 2 && n.nOut === 2)
+    return { kind: 'braid', half: 0, width: COL }
   if (n.nIn === 0) return { kind: 'state', half: 12, width: Math.max(44, spread + 28) }
   return { kind: 'box', half: 15, width: Math.max(34, n.label.length * 9 + 16, spread + 28) }
 }
 
 function Glyph({ n, cx, y, shape }: { n: DNode, cx: number, y: number, shape: Shape }) {
+  if (shape.kind === 'braid') return null
   if (shape.kind === 'dot') return <circle cx={cx} cy={y} r={6} className="dm-dot" />
   if (shape.kind === 'cap') return <g className="dm-wire-stroke">
     <line x1={cx - 10} y1={y} x2={cx + 10} y2={y} /><line x1={cx - 6} y1={y + 5} x2={cx + 6} y2={y + 5} />
@@ -71,43 +104,37 @@ const wire = (x1: number, y1: number, x2: number, y2: number) => {
 function DiagramView({ d, side, selected, hinted, onToggle, interactive }: {
   d: Diagram, side: Side, selected: Set<string>, hinted: Set<string>,
   onToggle: (side: Side, id: string) => void, interactive: boolean }) {
-  const { x, y, center, width, height } = layout(d)
-  const byId = new Map(d.nodes.map(n => [n.id, n]))
+  const { y, segs, center, inX, outX, width, height } = layout(d)
   const atoms = d.nodes.filter(n => n.isAtom)
   const firstRow = Math.min(...d.nodes.map(n => n.row)), lastRow = Math.max(...d.nodes.map(n => n.row))
   const spread = (n: DNode) => Math.max(n.nIn, n.nOut, 1) * COL - COL
-  const paths: string[] = []
-  // Wires between rows: straight down their column.
-  // Mathlib numbers a wire as (its source's first output column) + (its index in the whole row),
-  // so the wire's own column is that number minus the source's first output column.
-  for (const s of d.strands) {
-    const a = byId.get(s.src), b = byId.get(s.tgt)
-    if (!a || !b) continue
-    const c = x(s.col - a.colOut)
-    paths.push(`M ${c} ${y(a.row) + LEG} L ${c} ${y(b.row) - LEG}`)
-  }
+  const paths: string[] = segs.map(sg => `M ${sg.x} ${sg.y1} L ${sg.x} ${sg.y2}`)
+  const crossings: [string, string][] = []
   for (const n of d.nodes) {
-    const cy = y(n.row)
+    const cy = y(n.row), xi = inX(n), xo = outX(n)
     if (!n.isAtom) {
-      // A pass-through: the wire may shift to a new column here.
+      // A pass-through: the wire may shift sideways here.
       const top = n.row === firstRow ? cy : cy - LEG, bottom = n.row === lastRow ? cy : cy + LEG
-      paths.push(wire(x(n.col), top, x(n.colOut), bottom))
+      if (xi.length && xo.length) paths.push(wire(xi[0], top, xo[0], bottom))
       continue
     }
     const cx = center(n), sh = shapeOf(n, spread(n))
-    for (let i = 0; i < n.nIn; i++) {
-      const px = x(n.col + i)
-      paths.push(sh.kind === 'box' || sh.kind === 'state'
-        ? `M ${px} ${cy - LEG} L ${px} ${cy - sh.half}` : wire(px, cy - LEG, cx, cy - sh.half))
+    if (sh.kind === 'braid' && xi.length === 2 && xo.length === 2) {
+      // A crossing: one strand passes under the other (the gap is drawn in the sheet colour).
+      const under = wire(xi[0], cy - LEG, xo[1], cy + LEG), over = wire(xi[1], cy - LEG, xo[0], cy + LEG)
+      const isInv = n.label.endsWith('.inv')
+      crossings.push(isInv ? [over, under] : [under, over])
+      continue
     }
-    for (let k = 0; k < n.nOut; k++) {
-      const px = x(n.colOut + k)
-      paths.push(sh.kind === 'box' || sh.kind === 'state'
-        ? `M ${px} ${cy + sh.half} L ${px} ${cy + LEG}` : wire(cx, cy + sh.half, px, cy + LEG))
-    }
+    // Where the legs meet the glyph: spread across a box, or all at the centre of a dot or cap.
+    const port = (i: number, k: number) => sh.kind === 'box' || sh.kind === 'state'
+      ? cx + (i - (k - 1) / 2) * COL : cx
+    xi.forEach((px, i) => paths.push(wire(px, cy - LEG, port(i, xi.length), cy - sh.half)))
+    xo.forEach((px, k) => paths.push(wire(port(k, xo.length), cy + sh.half, px, cy + LEG)))
   }
   const hit = (n: DNode) => { const w = shapeOf(n, spread(n)).width + 20; return { x: center(n) - w / 2, w } }
-  return <svg viewBox={`0 0 ${Math.max(width, 140)} ${height}`} className="dm-svg"
+  return <svg viewBox={`0 0 ${Math.max(width, 140)} ${height}`} width={Math.max(width, 140)} height={height}
+      className="dm-svg"
       role="group" aria-label={side === 'lhs' ? 'Left side' : 'Right side'}>
     {atoms.map(n => {
       const cls = selected.has(n.id) ? 'dm-halo selected' : hinted.has(n.id) ? 'dm-halo hinted' : null
@@ -115,9 +142,11 @@ function DiagramView({ d, side, selected, hinted, onToggle, interactive }: {
       return cls && <rect key={`h-${n.id}`} x={h.x} y={y(n.row) - 22} width={h.w} height={44} rx={10} className={cls} />
     })}
     {paths.map((dd, i) => <path key={i} d={dd} className="dm-wire" />)}
+    {crossings.map(([u, o], i) => <g key={`x-${i}`}><path d={u} className="dm-wire" />
+      <path d={o} className="dm-wire-gap" /><path d={o} className="dm-wire" /></g>)}
     {atoms.map(n => <Glyph key={n.id} n={n} cx={center(n)} y={y(n.row)} shape={shapeOf(n, spread(n))} />)}
     {d.nodes.filter(n => !n.isAtom && (n.row === firstRow || n.row === lastRow)).map(n =>
-      <text key={`b-${n.id}`} x={x(n.row === firstRow ? n.col : n.colOut)}
+      <text key={`b-${n.id}`} x={(n.row === firstRow ? inX(n) : outX(n))[0] ?? center(n)}
         y={n.row === firstRow ? y(n.row) - 8 : y(n.row) + 18} className="dm-boundary">{n.label}</text>)}
     {interactive && atoms.map(n => {
       const on = selected.has(n.id), h = hit(n)
@@ -141,11 +170,19 @@ export function DiagramMoves({ rpcSess, goal, rules, ruleNames, onMove, disabled
   const [hint, setHint] = React.useState<Move | null>(null)
   const rulesKey = rules.join(',')
 
+  // The infoview often reloads the same goal; keep the player's selection unless the picture changed.
+  const shown = React.useRef<string>('')
   React.useEffect(() => {
     let cancelled = false
-    setResult(null); setError(null); setSel({ lhs: new Set(), rhs: new Set() }); setHint(null)
+    setError(null)
     rpcSess.call('PMC.diagramMoves', { goal, rules })
-      .then((r: any) => { if (!cancelled) setResult(r as MovesResult) })
+      .then((r: any) => {
+        if (cancelled) return
+        const key = JSON.stringify((r as MovesResult).current)
+        if (key !== shown.current) { setSel({ lhs: new Set(), rhs: new Set() }); setHint(null) }
+        shown.current = key
+        setResult(r as MovesResult)
+      })
       .catch((e: any) => { if (!cancelled) setError(String(e?.message ?? e)) })
     return () => { cancelled = true }
   }, [rpcSess, goal, rulesKey])
@@ -161,7 +198,7 @@ export function DiagramMoves({ rpcSess, goal, rules, ruleNames, onMove, disabled
   }
   const fits = (m: Move) => sameSet(sel.lhs, m.lhsFootprint) && sameSet(sel.rhs, m.rhsFootprint)
   const anySelected = sel.lhs.size + sel.rhs.size > 0
-  const name = (m: Move) => ruleNames.get(m.rule) ?? m.rule.split('.').pop()
+  const name = (m: Move) => ruleNames.get(m.rule) ?? (m.rule.includes('.') ? m.rule.split('.').pop() : `Your hypothesis ${m.rule}`)
   const hinted = (side: Side) => new Set(hint ? (side === 'lhs' ? hint.lhsFootprint : hint.rhsFootprint) : [])
   const fitting = result.moves.filter(fits)
 
