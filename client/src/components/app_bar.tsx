@@ -8,6 +8,7 @@ import { faDownload, faUpload, faEraser, faBook, faBookOpen, faGlobe, faHome,
   faCircleInfo, faTerminal, faGear } from '@fortawesome/free-solid-svg-icons'
 import { Button } from './button'
 import { downloadProgress } from './popup/erase'
+import { LevelProgress } from './puzzle'
 import { useTranslation } from 'react-i18next'
 import { useAtom } from 'jotai'
 import { popupAtom, PopupType } from '../store/popup-atoms'
@@ -390,12 +391,10 @@ export function LevelAppBar({isLoading, levelTitle, pageNumber=1, setPageNumber=
         {/* DESKTOP VERSION */}
         <div className='app-bar-left'>
           <HomeButton isDropdown={false} />
-          <span className="app-bar-title">{worldTitle && gT(worldTitle)}</span>
-        </div>
-        <div>
-          <span className="app-bar-title">{levelTitle}</span>
+          <span className="app-bar-title pz-game-title">{gT(gameInfo?.title ?? '')}</span>
         </div>
         <div className="nav-btns">
+          <LevelProgress />
           <PreviousButton  />
           <NextButton worldSize={gameInfo?.worldSize?.[worldId]} />
           <InputModeButton isDropdown={false}/>

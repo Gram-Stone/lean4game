@@ -31,12 +31,14 @@ import '@fontsource/public-sans/500.css'
 import '@fontsource/public-sans/600.css'
 import '@fontsource/jetbrains-mono/400.css'
 import '../css/pmc_theme.css'
+import '../css/puzzle.css'
 import { LevelAppBar } from './app_bar'
 import { isLastStepWithErrors, lastStepHasErrors } from './infoview/goals'
 import { useTranslation } from 'react-i18next'
 import i18next from 'i18next'
 import { useGameTranslation } from '../utils/translation'
 import { InventoryPanel } from './inventory/inventory_panel'
+import { RulesAside, useClickRules, LevelProgress } from './puzzle'
 import { useAtom } from 'jotai'
 import { codeAtom, leanMonacoAtom, lockEditorModeAtom, proofAtom, selectionsAtom, typewriterModeAtom } from '../store/editor-atoms'
 import { gameIdAtom, levelIdAtom, worldIdAtom } from '../store/location-atoms'
@@ -244,6 +246,7 @@ function PlayableLevel() {
   const [inventoryDoc, setInventoryDoc] = useState<{name: string, type: string} | null>(null)
   function closeInventoryDoc () {setInventoryDoc(null)}
 
+  const clickRules = useClickRules()
   const [leanMonacoEditor, setLeanMonacoEditor] = useState<LeanMonacoEditor|null>(null)
   const [editorConnection, setEditorConnection] = useState<null|EditorConnection>(null)
 
@@ -521,13 +524,14 @@ function PlayableLevel() {
                     </div>
                   </>
                 :
-                  <Split minSize={0} snapOffset={200} sizes={[25, 50, 25]} className={`app-content level ${levelInfoIsLoading ? 'hidden' : ''}`}>
-                    <ChatPanel lastLevel={lastLevel}/>
+                  // The puzzle layout: one goal sheet, and the player's rules beside it.
+                  // (Typing levels keep lean4game's inventory of tactics and theorems there.)
+                  <div className={`app-content level puzzle-level ${levelInfoIsLoading ? 'hidden' : ''}`}>
                     <ExercisePanel
                       codeviewRef={codeviewRef}
                       infoviewRef={infoviewRef} />
-                    <InventoryPanel levelInfo={levelInfo} />
-                  </Split>
+                    {clickRules ? <RulesAside /> : <InventoryPanel levelInfo={levelInfo} />}
+                  </div>
                 }
               </MonacoEditorContext.Provider>
             </EditorContext.Provider>

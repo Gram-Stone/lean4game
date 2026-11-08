@@ -7,6 +7,11 @@
  * applying one sends its `diag_rw` tactic through the typewriter, so Lean checks every move.
  */
 import * as React from 'react'
+import { createPortal } from 'react-dom'
+import { useAtom } from 'jotai'
+import { gameIdAtom } from '../../store/location-atoms'
+import { hintOpenAtom } from '../puzzle'
+import { Markdown } from '../markdown'
 import { RpcSessionAtPos } from '@leanprover/infoview-api'
 import '../../css/diagram_moves.css'
 
@@ -101,9 +106,9 @@ const wire = (x1: number, y1: number, x2: number, y2: number) => {
 }
 
 /** One side of the goal as a clickable string diagram. */
-function DiagramView({ d, side, selected, hinted, onToggle, interactive }: {
+export function DiagramView({ d, side, selected, hinted, onToggle, interactive, scale = 1, className = '' }: {
   d: Diagram, side: Side, selected: Set<string>, hinted: Set<string>,
-  onToggle: (side: Side, id: string) => void, interactive: boolean }) {
+  onToggle: (side: Side, id: string) => void, interactive: boolean, scale?: number, className?: string }) {
   const { y, segs, center, inX, outX, width, height } = layout(d)
   const atoms = d.nodes.filter(n => n.isAtom)
   const firstRow = Math.min(...d.nodes.map(n => n.row)), lastRow = Math.max(...d.nodes.map(n => n.row))
@@ -133,8 +138,9 @@ function DiagramView({ d, side, selected, hinted, onToggle, interactive }: {
     xo.forEach((px, k) => paths.push(wire(port(k, xo.length), cy + sh.half, px, cy + LEG)))
   }
   const hit = (n: DNode) => { const w = shapeOf(n, spread(n)).width + 20; return { x: center(n) - w / 2, w } }
-  return <svg viewBox={`0 0 ${Math.max(width, 140)} ${height}`} width={Math.max(width, 140)} height={height}
-      className="dm-svg"
+  const vw = Math.max(width, scale < 1 ? 60 : 140)
+  return <svg viewBox={`0 0 ${vw} ${height}`} width={vw * scale} height={height * scale}
+      className={`dm-svg ${className}`}
       role="group" aria-label={side === 'lhs' ? 'Left side' : 'Right side'}>
     {atoms.map(n => {
       const cls = selected.has(n.id) ? 'dm-halo selected' : hinted.has(n.id) ? 'dm-halo hinted' : null
@@ -161,21 +167,75 @@ function DiagramView({ d, side, selected, hinted, onToggle, interactive }: {
 const sameSet = (a: Set<string>, b: string[]) => a.size === b.length && b.every(x => a.has(x))
 
 /** The clickable diagram panel for the current goal. */
-export function DiagramMoves({ rpcSess, goal, rules, ruleNames, onMove, disabled }: {
+export interface RuleDiagram { name: string, diagrams: EqDiagrams | null, structural?: boolean }
+
+/** Rule pictures and doc texts are the same for every goal; fetch each once per page. */
+const ruleDiagramCache = new Map<string, EqDiagrams | null>()
+/** Rules whose two sides are the same picture (bookkeeping like `assoc`): no card for them. */
+const structuralRules = new Set<string>()
+const ruleDocCache = new Map<string, string>()
+
+const empty = new Set<string>()
+
+/** A rule's own before-and-after picture, small. */
+function MiniRule({ d }: { d: EqDiagrams }) {
+  const view = (x: Diagram, side: Side) => x.nodes.length
+    ? <DiagramView d={x} side={side} selected={empty} hinted={empty} onToggle={() => {}}
+        interactive={false} scale={0.5} className="dm-mini-svg" />
+    : <span className="dm-mini-nothing">nothing</span>
+  return <div className="dm-mini" aria-hidden="true">
+    {view(d.lhs, 'lhs')}<span className="dm-mini-eq">=</span>{view(d.rhs, 'rhs')}
+  </div>
+}
+
+/** First paragraph of a theorem's doc, without its "Lean name: ..." line. */
+function useRuleDocs(gameId: string | undefined, rules: string[]) {
+  const [, bump] = React.useState(0)
+  React.useEffect(() => {
+    if (!gameId) return
+    let cancelled = false
+    for (const r of rules) {
+      if (ruleDocCache.has(r)) continue
+      ruleDocCache.set(r, '')
+      fetch(`${window.location.origin}/data/${gameId}/doc__Theorem__${r}.json`)
+        .then(res => res.json())
+        .then((doc: any) => {
+          const text = String(doc?.content ?? '').split(/\n\s*\n/)[0]
+            .replace(/\s*Lean name:[\s\S]*$/, '').trim()
+          ruleDocCache.set(r, text)
+          if (!cancelled) bump(n => n + 1)
+        }).catch(() => {})
+    }
+    return () => { cancelled = true }
+  }, [gameId, rules.join(',')])
+  return (r: string) => ruleDocCache.get(r) ?? ''
+}
+
+/**
+ * The goal as two clickable diagrams, and (in the rules column) a card per rule.
+ * With `readOnly`, only the pictures are shown: the level is played by typing.
+ */
+export function DiagramMoves({ rpcSess, goal, rules, ruleNames, onMove, disabled, readOnly = false,
+    onReset, moveCount = 0 }: {
   rpcSess: RpcSessionAtPos, goal: any, rules: string[], ruleNames: Map<string, string>,
-  onMove: (tactic: string) => void, disabled: boolean }) {
+  onMove: (tactic: string) => void, disabled: boolean, readOnly?: boolean,
+  onReset?: () => void, moveCount?: number }) {
   const [result, setResult] = React.useState<MovesResult | null>(null)
   const [error, setError] = React.useState<string | null>(null)
   const [sel, setSel] = React.useState<Selection>({ lhs: new Set(), rhs: new Set() })
   const [hint, setHint] = React.useState<Move | null>(null)
+  const [, setHintOpen] = useAtom(hintOpenAtom)
+  const [gameId] = useAtom(gameIdAtom)
+  const [, bump] = React.useState(0)
   const rulesKey = rules.join(',')
+  const docOf = useRuleDocs(gameId, readOnly ? [] : rules)
 
   // The infoview often reloads the same goal; keep the player's selection unless the picture changed.
   const shown = React.useRef<string>('')
   React.useEffect(() => {
     let cancelled = false
     setError(null)
-    rpcSess.call('PMC.diagramMoves', { goal, rules })
+    rpcSess.call('PMC.diagramMoves', { goal, rules: readOnly ? [] : rules })
       .then((r: any) => {
         if (cancelled) return
         const key = JSON.stringify((r as MovesResult).current)
@@ -185,62 +245,113 @@ export function DiagramMoves({ rpcSess, goal, rules, ruleNames, onMove, disabled
       })
       .catch((e: any) => { if (!cancelled) setError(String(e?.message ?? e)) })
     return () => { cancelled = true }
-  }, [rpcSess, goal, rulesKey])
+  }, [rpcSess, goal, rulesKey, readOnly])
+
+  // The rule cards' own pictures.
+  React.useEffect(() => {
+    if (readOnly) return
+    const missing = rules.filter(r => !ruleDiagramCache.has(r))
+    if (!missing.length) return
+    let cancelled = false
+    rpcSess.call('PMC.ruleDiagrams', { goal, rules: missing })
+      .then((rs: any) => {
+        for (const r of (rs as RuleDiagram[])) {
+          ruleDiagramCache.set(r.name, r.diagrams)
+          if (r.structural || !r.diagrams) structuralRules.add(r.name)
+        }
+        if (!cancelled) bump(n => n + 1)
+      }).catch(() => {})
+    return () => { cancelled = true }
+  }, [rpcSess, goal, rulesKey, readOnly])
+
+  // The rules column exists once the level page has rendered.
+  const [slot, setSlot] = React.useState<HTMLElement | null>(null)
+  React.useEffect(() => { setSlot(document.getElementById('pmc-rules-slot')) })
 
   if (error) return <div className="dm-panel dm-note">Couldn't draw this goal: {error}</div>
   if (!result) return <div className="dm-panel dm-note">Drawing the goal…</div>
   if (!result.current) return null
 
+  const interactive = !disabled && !readOnly
   const toggle = (side: Side, id: string) => {
-    if (disabled) return
+    if (!interactive) return
     setHint(null)
     setSel(s => { const next = new Set(s[side]); next.has(id) ? next.delete(id) : next.add(id); return { ...s, [side]: next } })
   }
   const fits = (m: Move) => sameSet(sel.lhs, m.lhsFootprint) && sameSet(sel.rhs, m.rhsFootprint)
   const anySelected = sel.lhs.size + sel.rhs.size > 0
-  const name = (m: Move) => ruleNames.get(m.rule) ?? (m.rule.includes('.') ? m.rule.split('.').pop() : `Your hypothesis ${m.rule}`)
+  const name = (rule: string) => ruleNames.get(rule) ?? (rule.includes('.') ? rule.split('.').pop()! : `Your hypothesis ${rule}`)
   const hinted = (side: Side) => new Set(hint ? (side === 'lhs' ? hint.lhsFootprint : hint.rhsFootprint) : [])
   const fitting = result.moves.filter(fits)
 
-  return <div className="dm-panel">
+  // One card per rule: every unlocked rule, then any hypotheses Lean offered.
+  // Bookkeeping rules never change the picture, so they get no card. Rules that apply here come first.
+  const offered = new Set(result.moves.map(m => m.rule))
+  const cardRules = [...rules.filter(r => !structuralRules.has(r) || offered.has(r)),
+                     ...[...offered].filter(r => !rules.includes(r))]
+    .sort((a, b) => Number(offered.has(b)) - Number(offered.has(a)))
+  const cards = <div className="dm-cards">
+    {cardRules.map(rule => {
+      const moves = result.moves.filter(m => m.rule === rule)
+      const ok = moves.filter(fits)
+      const state = ok.length ? 'fits' : moves.length ? 'live' : 'idle'
+      const pic = ruleDiagramCache.get(rule)
+      const doc = docOf(rule)
+      return <div key={rule} className={`dm-card ${state}`}
+          onMouseEnter={() => moves[0] && setHint(moves[0])} onMouseLeave={() => setHint(null)}>
+        <div className="dm-card-top">
+          <strong>{name(rule)}</strong>
+          <span className="dm-chip">{state === 'fits' ? 'Fits'
+            : state === 'idle' ? 'Not here' : anySelected ? "Doesn't fit" : 'Select pieces'}</span>
+        </div>
+        {pic && <MiniRule d={pic} />}
+        {doc && <div className="dm-doc"><Markdown>{doc}</Markdown></div>}
+        {moves.some(m => m.after === null) && <span className="dm-sub">Finishes the level.</span>}
+        {moves.length > 0 && <div className="dm-actions">
+          {(ok.length ? ok : moves.slice(0, 1)).map(m =>
+            <button key={m.tactic} disabled={disabled || !fits(m)} onClick={() => onMove(m.tactic)}>
+              Apply{m.reverse ? ' backwards' : ''}</button>)}
+        </div>}
+      </div>
+    })}
+    {result.moves.length === 0 && !result.sameDiagram &&
+      <p className="dm-note">None of your rules apply to this goal yet.</p>}
+  </div>
+
+  return <div className={`dm-panel${readOnly ? ' read-only' : ''}`}>
     <div className="dm-equation">
       <figure className="dm-side">
-        <figcaption>Left side</figcaption>
+        <figcaption><span>Left side</span>{!readOnly && <span className="dm-cap-state">
+          {sel.lhs.size ? `${sel.lhs.size} selected` : 'Nothing selected'}</span>}</figcaption>
         <DiagramView d={result.current.lhs} side="lhs" selected={sel.lhs} hinted={hinted('lhs')}
-          onToggle={toggle} interactive={!disabled} />
+          onToggle={toggle} interactive={interactive} />
       </figure>
       <div className="dm-eq" aria-hidden="true">=</div>
       <figure className="dm-side">
-        <figcaption>Right side</figcaption>
+        <figcaption><span>Right side</span>{!readOnly && <span className="dm-cap-state">
+          {sel.rhs.size ? `${sel.rhs.size} selected` : ''}</span>}</figcaption>
         <DiagramView d={result.current.rhs} side="rhs" selected={sel.rhs} hinted={hinted('rhs')}
-          onToggle={toggle} interactive={!disabled} />
+          onToggle={toggle} interactive={interactive} />
       </figure>
     </div>
-    <p className="dm-status" aria-live="polite">
-      {result.sameDiagram ? 'Both sides are already the same diagram.'
-        : !anySelected ? 'Click boxes to select them, then apply a rule that fits.'
-        : fitting.length ? `${name(fitting[0])} fits this selection.`
-        : 'No rule fits this selection. Try adding or removing a box.'}
-    </p>
-    <div className="dm-cards">
-      {result.sameDiagram &&
-        <button className="dm-card fits" disabled={disabled} onClick={() => onMove('same_diagram')}>
-          <strong>Same picture</strong><span>Finish: the two sides only differ in bookkeeping.</span>
-        </button>}
-      {result.moves.map(m => {
-        const ok = fits(m)
-        return <div key={m.tactic} className={`dm-card${ok ? ' fits' : ''}`}
-            onMouseEnter={() => setHint(m)} onMouseLeave={() => setHint(null)}>
-          <div className="dm-card-top">
-            <strong>{name(m)}{m.reverse ? ' (backwards)' : ''}</strong>
-            <span className="dm-chip">{ok ? 'Fits' : anySelected ? "Doesn't fit" : 'Hover to see where'}</span>
-          </div>
-          {m.after === null && <span className="dm-sub">Finishes the level.</span>}
-          <button disabled={disabled || !ok} onClick={() => onMove(m.tactic)}>Apply {name(m)}</button>
-        </div>
-      })}
-      {!result.sameDiagram && result.moves.length === 0 &&
-        <p className="dm-note">None of your rules apply to this goal. Try typing a move instead.</p>}
+    <div className="dm-statusrow">
+      <p className="dm-status" aria-live="polite">
+        {result.sameDiagram ? (readOnly ? 'Both sides are the same picture; now show Lean why.' : 'Both sides are the same picture.')
+          : readOnly ? ''
+          : !anySelected ? 'Select pieces of a diagram to begin.'
+          : fitting.length ? `${name(fitting[0].rule)} fits this selection.`
+          : 'No rule fits this selection. Try adding or removing a box.'}
+      </p>
+      <div className="dm-tools">
+        {!readOnly && <span className="dm-count">Moves {moveCount}</span>}
+        <button className="dm-tool" onClick={() => setHintOpen(o => !o)}>Hint</button>
+        {onReset && moveCount > 0 && <button className="dm-tool" onClick={onReset}>Start over</button>}
+      </div>
     </div>
+    {result.sameDiagram && !readOnly &&
+      <button className="dm-same" disabled={disabled} onClick={() => onMove('same_diagram')}>
+        <strong>Same picture</strong><span>Finish: the two sides only differ in bookkeeping.</span>
+      </button>}
+    {!readOnly && (slot ? createPortal(cards, slot) : cards)}
   </div>
 }

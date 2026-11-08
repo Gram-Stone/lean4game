@@ -35,6 +35,7 @@ import { UserWidgetInstance, Widget_getWidgets, RpcSessionAtPos } from '@leanpro
 import { PanelWidgetDisplay } from '../../../../node_modules/vscode-lean4/lean4-infoview/src/infoview/userWidget';
 import { EnvPosContext } from '../../widgetDeps/infoview';
 import { DiagramMoves } from './diagramMoves';
+import { PuzzleHeading, HintBox, LevelComplete } from '../puzzle';
 import { pendingCommandAtom } from '../../store/editor-atoms';
 import { levelInfoAtom as levelInfoQueryAtom } from '../../store/query-atoms';
 import { DiagnosticSeverity } from 'vscode-languageclient';
@@ -518,6 +519,7 @@ export function TypewriterInterface() {
   const [{ data: clickLevelInfo }] = useAtom(levelInfoQueryAtom)
   const [clickInventory] = useAtom(inventoryAtom)
   const [pendingCommand, setPendingCommand] = useAtom(pendingCommandAtom)
+  const [showTyping, setShowTyping] = React.useState(false)
   const clickRules = React.useMemo(() => {
     const unlocked = (t: any) => t && !t.disabled && (!t.locked || (clickInventory ?? []).includes(t.name))
     const diagRw = clickLevelInfo?.tactics?.find((t: any) => t.name === 'diag_rw')
@@ -639,8 +641,11 @@ export function TypewriterInterface() {
 
         </div> */}
       </div>
-      <div className='proof' ref={proofPanelRef}>
-        <ExerciseStatement showLeanStatement={true} />
+      <div className={'proof' + (proof?.completed ? ' is-complete' : '')} ref={proofPanelRef}>
+        <PuzzleHeading clickable={!!clickRules} />
+        <details className="lean-drawer lean-statement"><summary>Lean statement</summary>
+          <ExerciseStatement showLeanStatement={true} />
+        </details>
         {((crashed && (interimDiags.length > 0 || proof?.steps.length > 0))) ? <div>
           <p className="crashed_message">{t("Crashed! Go to editor mode and fix your proof! Last server response:")}</p>
           {interimDiags.map((diag, index) => {
@@ -692,21 +697,24 @@ export function TypewriterInterface() {
                   {/* <GoalsTabs proofStep={step} last={i == proof?.steps.length - (lastStepErrors ? 2 : 1)} onClick={toggleSelectStep(i)} onGoalChange={i == proof?.steps.length - 1 - withErr ? (n) => setDisableInput(n > 0) : (n) => {}}/> */}
                   {i == proof?.steps.length - (lastStepHasErrors(proof) ? 2 : 1) && model && clickRules && step.goals.length > 0 &&
                     <DiagramMoves rpcSess={rpcSess} goal={step.goals[0].goal} rules={clickRules.rules}
-                      ruleNames={clickRules.names} onMove={setPendingCommand} disabled={!!pendingCommand} />
+                      ruleNames={clickRules.names} onMove={setPendingCommand} disabled={!!pendingCommand}
+                      onReset={() => deleteProof(1)(undefined)} moveCount={Math.max(0, (proof?.steps.length ?? 1) - 1)} />
+                  }
+                  {i == proof?.steps.length - (lastStepHasErrors(proof) ? 2 : 1) && model && !clickRules && step.goals.length > 0 &&
+                    <DiagramMoves rpcSess={rpcSess} goal={step.goals[0].goal} rules={[]} readOnly
+                      ruleNames={new Map()} onMove={() => {}} disabled={true}
+                      onReset={() => deleteProof(1)(undefined)} moveCount={Math.max(0, (proof?.steps.length ?? 1) - 1)} />
                   }
                   {!(isLastStepWithErrors(proof, i)) && (() => {
                     const goals = <GoalsTabs proofStep={step} last={i == proof?.steps.length - (lastStepHasErrors(proof) ? 2 : 1)} onClick={toggleSelectStep(i)} onGoalChange={i == proof?.steps.length - (lastStepHasErrors(proof) ? 2 : 1) ? (n) => setDisableInput(n > 0) : (n) => {}}/>
                     // When the level can be played by clicking, the picture leads and Lean's goal folds away.
-                    return clickRules && step.goals.length > 0
+                    // The picture leads; Lean's goal folds away, and only the current step keeps one.
+                    const current = i == proof?.steps.length - (lastStepHasErrors(proof) ? 2 : 1)
+                    if (!current && step.goals.length > 0) return null
+                    return step.goals.length > 0
                       ? <details className="lean-drawer"><summary>Lean goal</summary>{goals}</details>
                       : goals
                   })()}
-                  {i == proof?.steps.length - (lastStepHasErrors(proof) ? 2 : 1) && model && !clickRules &&
-                    <StepWidgets rpcSess={rpcSess}
-                      pos={{ uri: effectiveUri, line: model.getLineCount() - 1,
-                             character: model.getLineMaxColumn(model.getLineCount()) - 1 }}
-                      goals={step.goals.map(g => g.goal)} />
-                  }
                   {mobile && i == proof?.steps.length - 1 &&
                     <MoreHelpButton selected={null} />
                   }
@@ -727,6 +735,8 @@ export function TypewriterInterface() {
               }
             //}
             )}
+            <HintBox />
+            <LevelComplete />
             {proof?.diagnostics.length > 0 &&
               <div key={`proof-step-remaining`} className="step step-remaining">
                 <Errors errors={proof?.diagnostics} typewriterMode={true} />
@@ -754,7 +764,13 @@ export function TypewriterInterface() {
         }
       </div>
     </div>
-    <Typewriter disabled={disableInput || crashed}/>
+    {/* Always mounted: it also sends the moves chosen by clicking. Hidden until asked for when clicking. */}
+    <div className={(clickRules && !showTyping) || proof?.completed ? 'pz-typing-hidden' : ''}>
+      <Typewriter disabled={disableInput || crashed}/>
+    </div>
+    {clickRules && !proof?.completed &&
+      <button className="pz-link pz-typing-toggle" onClick={() => setShowTyping(v => !v)}>
+        {showTyping ? 'Hide the Lean input' : 'Type a Lean move instead'}</button>}
     </RpcContext.Provider>
   </div>
 }

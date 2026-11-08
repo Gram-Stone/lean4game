@@ -1,0 +1,157 @@
+/*
+ * Puzzle layout of a level (see components/puzzle.tsx): a goal sheet and a rules column,
+ * following the level-screen prototype.
+ */
+
+.puzzle-level, .dm-panel, .pz-rules {
+  --dm-sheet: #fbfcfd; --dm-line: #d4dce4; --dm-dot: #cfd8e0; --dm-ink: #17222e; --dm-muted: #586675;
+  --dm-wire: #1e3a5c; --dm-marker: rgba(241, 182, 47, 0.35); --dm-fit: #2c5fc7; --dm-fit-soft: rgba(44, 95, 199, 0.10);
+  --dm-hint: rgba(44, 95, 199, 0.16); --dm-amber: #f1b62f;
+}
+
+/* Two columns on paper: the sheet scrolls on its own, the rules column on its own. */
+body .puzzle-level {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 340px);
+  gap: 24px;
+  padding: 20px clamp(16px, 3vw, 40px) 0;
+  background: var(--pmc-paper, #eef2f5);
+  max-width: 1320px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+body .puzzle-level > .exercise-panel { height: 100%; overflow: hidden; }
+body .puzzle-level > .inventory-panel, body .puzzle-level > .pz-rules {
+  height: 100%; overflow-y: auto; padding-bottom: 24px; background: transparent;
+}
+
+/* The sheet */
+body .puzzle-level .exercise {
+  background-color: var(--dm-sheet);
+  background-image: radial-gradient(var(--dm-dot) 1px, transparent 1.2px);
+  background-size: 18px 18px;
+  border: 1px solid var(--dm-line);
+  border-bottom: 0;
+  border-radius: 14px 14px 0 0;
+}
+body .puzzle-level .typewriter-interface .content { background: transparent; }
+body .puzzle-level .typewriter-interface .proof { padding: 22px clamp(14px, 2.4vw, 30px) 18px; }
+body .puzzle-level .exercise .step { padding: 0; margin: 0; }
+body .puzzle-level .exercise .step.selected .goal-tabs { box-shadow: none; }
+
+/* Heading */
+.pz-heading { max-width: 70ch; margin-bottom: 10px; }
+.pz-kicker {
+  margin: 0 0 4px; font: 600 11.5px/1 var(--pmc-body, system-ui), sans-serif;
+  letter-spacing: .12em; text-transform: uppercase; color: var(--dm-muted);
+}
+.pz-title { margin: 0 0 8px; font: 600 clamp(24px, 2.6vw, 32px)/1.15 var(--pmc-display, Georgia), serif; color: var(--dm-ink); }
+.pz-story { font-size: 15.5px; line-height: 1.6; color: var(--dm-ink); }
+.pz-story p { margin: 0 0 8px; }
+.pz-instruction { margin: 6px 0 0; font-size: 14px; color: var(--dm-muted); }
+
+/* The Lean statement and goal drawers stay small and quiet. */
+body .puzzle-level .lean-statement { margin: 4px 0 8px; }
+body .puzzle-level .lean-statement .exercise-statement { background: transparent; padding: 6px 0 0; }
+
+/* Past moves: a compact log above the current picture. */
+body .puzzle-level .exercise .command {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 6px 2px; border-bottom: 1px dashed var(--dm-line);
+}
+
+/* The diagram panel inside the sheet: no box of its own. */
+body .puzzle-level .dm-panel { background: transparent; border: 0; padding: 4px 0 0; margin: 8px 0 0; }
+.dm-side { background: var(--dm-sheet); border-radius: 12px; padding: 10px 12px 14px; }
+.dm-side figcaption { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 6px;
+  font: 500 12.5px var(--pmc-body, system-ui), sans-serif; color: var(--dm-muted); font-style: normal; }
+.dm-equation { gap: 14px; }
+.dm-side { min-height: 220px; }
+.dm-eq { font-size: 30px; align-self: center; }
+body .puzzle-level .typewriter-interface .proof, body .puzzle-level .exercise .step { background: transparent; }
+
+.dm-statusrow { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 12px; }
+.dm-statusrow .dm-status { margin: 0; font-size: 14.5px; color: var(--dm-ink); }
+.dm-tools { display: flex; align-items: center; gap: 8px; }
+.dm-count { font-size: 13px; color: var(--dm-muted); margin-right: 4px; }
+.dm-tool, .pz-primary {
+  font: 500 13.5px/1 var(--pmc-body, system-ui), sans-serif; padding: 8px 13px; border-radius: 8px;
+  border: 1px solid var(--dm-line); background: var(--dm-sheet); color: var(--dm-ink); cursor: pointer;
+}
+.dm-tool:hover { border-color: var(--dm-fit); color: var(--dm-fit); }
+.dm-tool:focus-visible, .pz-primary:focus-visible, .dm-card button:focus-visible { outline: 2px solid var(--dm-fit); outline-offset: 2px; }
+.pz-primary { background: var(--dm-wire); color: #fff; border-color: var(--dm-wire); padding: 10px 16px; font-size: 14.5px; }
+.pz-primary:hover { background: #12263d; }
+
+.dm-same {
+  margin-top: 12px; width: 100%; display: flex; gap: 10px; align-items: baseline; text-align: left;
+  padding: 12px 14px; border-radius: 10px; cursor: pointer; font: inherit;
+  border: 1px solid var(--dm-fit); background: var(--dm-fit-soft); color: var(--dm-ink);
+  box-shadow: 0 0 0 3px var(--dm-fit-soft);
+}
+.dm-same span { color: var(--dm-muted); font-size: 13.5px; }
+
+/* Hint and level complete */
+.pz-hint {
+  margin: 14px 0 0; padding: 12px 14px; border-radius: 10px; background: #fffaf0;
+  border: 1px solid #efd9a6; border-left: 3px solid var(--dm-amber); font-size: 14.5px; line-height: 1.55;
+}
+.pz-hint-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
+.pz-hint p { margin: 0 0 6px; }
+.pz-done {
+  margin: 16px 0 6px; padding: 16px 18px; border-radius: 12px;
+  background: rgba(29, 134, 87, 0.08); border: 1px solid rgba(29, 134, 87, 0.3);
+}
+.pz-done .pz-kicker { color: #1d8657; }
+.pz-done p { font-size: 15px; line-height: 1.55; }
+.pz-link { background: none; border: 0; padding: 0; color: var(--dm-fit); cursor: pointer; font: 500 13px var(--pmc-body, system-ui), sans-serif; }
+.pz-link:hover { text-decoration: underline; }
+body .puzzle-level .pz-typing-toggle { display: block; margin: 8px auto 10px; }
+
+/* The Lean input under the sheet */
+body .puzzle-level .typewriter { margin: 0 0 12px; border-radius: 0 0 14px 14px; }
+
+/* Rules column */
+.pz-rules-title { margin: 6px 0 4px; font: 600 19px var(--pmc-display, Georgia), serif; color: var(--dm-ink); }
+.pz-rules-sub { margin: 0 0 12px; font-size: 13.5px; line-height: 1.5; color: var(--dm-muted); }
+.pz-rules .dm-cards { grid-template-columns: 1fr; gap: 10px; }
+.pz-rules .dm-card { padding: 12px 14px; gap: 8px; transition: border-color .15s, box-shadow .15s, opacity .15s; }
+.dm-card.idle { opacity: .55; }
+.dm-card.idle .dm-chip { font-style: italic; }
+.dm-card.live:hover { border-color: #9fb3c8; }
+.dm-card strong { font-size: 15px; }
+.dm-mini { display: flex; align-items: center; gap: 10px; padding: 2px 0; }
+.dm-mini-svg { margin: 0; }
+.dm-mini-eq { color: var(--dm-muted); font-size: 18px; }
+.dm-mini-nothing { font-size: 12px; font-style: italic; color: var(--dm-muted); }
+.dm-doc { font-size: 13.5px; line-height: 1.5; color: var(--dm-ink); }
+.dm-doc p { margin: 0; }
+.dm-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+
+/* Progress in the top bar */
+.pz-progress { display: inline-flex; align-items: center; gap: 12px; margin-right: 10px;
+  font: 500 13.5px var(--pmc-body, system-ui), sans-serif; color: var(--dm-muted, #586675); }
+.pz-dots { display: inline-flex; gap: 5px; }
+.pz-dots i { width: 18px; height: 5px; border-radius: 3px; background: #d4dce4; display: inline-block; }
+.pz-dots i.done { background: #7d8fa3; }
+.pz-dots i.now { background: #f1b62f; }
+body .app-bar .pz-game-title { font-size: 1.3rem; }
+
+/* Narrow screens: one column, rules under the sheet. */
+@media (max-width: 900px) {
+  body .puzzle-level { grid-template-columns: minmax(0, 1fr); overflow-y: auto; padding: 12px 16px 0; }
+  body .puzzle-level > .exercise-panel, body .puzzle-level > .pz-rules, body .puzzle-level > .inventory-panel { height: auto; overflow: visible; }
+  .pz-progress .pz-dots { display: none; }
+}
+
+/* Mini pictures on rule cards: thicker strokes so they read at half size; no wire labels. */
+.dm-mini-svg .dm-wire, .dm-mini-svg .dm-wire-stroke line { stroke-width: 3.4; }
+.dm-mini-svg .dm-box { stroke-width: 2.6; }
+.dm-mini-svg .dm-boundary { display: none; }
+.dm-mini-svg .dm-label { font-size: 20px; }
+
+.pz-typing-hidden { display: none; }
+
+/* The level-complete card replaces Lean's own one-line note. */
+body .puzzle-level .is-complete .message.information { display: none; }
