@@ -1,3 +1,5 @@
+// Must come first: fixes Windows paths inside the editor (see platformShim.ts).
+import './platformShim'
 import * as React from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './app'
