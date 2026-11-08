@@ -1,0 +1,42 @@
+/* Clickable string diagrams. Palette follows the level-screen prototype. */
+.dm-panel {
+  --dm-sheet: #fbfcfd; --dm-line: #d4dce4; --dm-dot: #cfd8e0; --dm-ink: #17222e; --dm-muted: #586675;
+  --dm-wire: #1e3a5c; --dm-marker: rgba(241, 182, 47, 0.35); --dm-fit: #2c5fc7; --dm-fit-soft: rgba(44, 95, 199, 0.10);
+  --dm-hint: rgba(44, 95, 199, 0.16);
+  margin: 10px 0 4px; padding: 14px; border: 1px solid var(--dm-line); border-radius: 12px;
+  background-color: var(--dm-sheet);
+  background-image: radial-gradient(var(--dm-dot) 1px, transparent 1.2px); background-size: 18px 18px;
+  color: var(--dm-ink); font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+.dm-note { color: var(--dm-muted); font-size: 13px; }
+.dm-equation { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 8px; }
+.dm-side { margin: 0; background: var(--dm-sheet); border: 1px solid var(--dm-line); border-radius: 10px; padding: 6px 8px; min-width: 0; }
+.dm-side figcaption { font-size: 12px; color: var(--dm-muted); }
+.dm-svg { width: 100%; height: auto; max-height: 340px; display: block; }
+.dm-eq { font: 500 28px/1 Georgia, serif; color: var(--dm-muted); }
+.dm-wire { fill: none; stroke: var(--dm-wire); stroke-width: 2; stroke-linecap: round; }
+.dm-wire-stroke line { stroke: var(--dm-wire); stroke-width: 2; stroke-linecap: round; }
+.dm-dot { fill: var(--dm-wire); }
+.dm-box { fill: var(--dm-sheet); stroke: var(--dm-wire); stroke-width: 1.8; }
+.dm-label { text-anchor: middle; font: italic 15px Georgia, "Iowan Old Style", serif; fill: var(--dm-ink); }
+.dm-boundary { text-anchor: middle; font: italic 12px Georgia, serif; fill: var(--dm-muted); }
+.dm-halo.selected { fill: var(--dm-marker); }
+.dm-halo.hinted { fill: var(--dm-hint); }
+.dm-hit { fill: transparent; cursor: pointer; outline: none; }
+.dm-hit:focus-visible { stroke: var(--dm-fit); stroke-width: 2; stroke-dasharray: 3 3; }
+.dm-status { margin: 10px 2px 8px; font-size: 14px; }
+.dm-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
+.dm-card { background: var(--dm-sheet); border: 1px solid var(--dm-line); border-radius: 10px; padding: 10px;
+  display: grid; gap: 6px; text-align: left; font: inherit; color: inherit; }
+.dm-card.fits { border-color: var(--dm-fit); box-shadow: 0 0 0 3px var(--dm-fit-soft); }
+.dm-card-top { display: flex; justify-content: space-between; gap: 6px; align-items: baseline; }
+.dm-chip { font-size: 11.5px; color: var(--dm-muted); }
+.dm-card.fits .dm-chip { color: var(--dm-fit); font-weight: 600; }
+.dm-sub { font-size: 12px; color: var(--dm-muted); }
+.dm-card button { justify-self: start; font: 500 13px/1 system-ui, sans-serif; padding: 7px 10px; border-radius: 8px;
+  border: 1px solid var(--dm-line); background: transparent; color: var(--dm-ink); cursor: pointer; }
+.dm-card.fits button { border-color: var(--dm-fit); color: var(--dm-fit); }
+.dm-card button:disabled { opacity: 0.45; cursor: not-allowed; }
+button.dm-card { cursor: pointer; }
+button.dm-card span { font-size: 12.5px; color: var(--dm-muted); }
+@media (max-width: 560px) { .dm-equation { grid-template-columns: minmax(0, 1fr); } .dm-eq { justify-self: center; } }

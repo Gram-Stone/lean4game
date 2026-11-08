@@ -15,7 +15,7 @@ import { useTranslation } from 'react-i18next'
 import { useAtom } from 'jotai'
 import { levelIdAtom, worldIdAtom } from '../../store/location-atoms'
 import { preferencesAtom } from '../../store/preferences-atoms'
-import { crashedAtom, interimDiagsAtom, proofAtom, typewriterContentAtom } from '../../store/editor-atoms'
+import { crashedAtom, interimDiagsAtom, pendingCommandAtom, proofAtom, typewriterContentAtom } from '../../store/editor-atoms'
 import { deletedChatAtom } from '../../store/chat-atoms'
 
 export interface GameDiagnosticsParams {
@@ -78,6 +78,22 @@ export function Typewriter({disabled}: {disabled?: boolean}) {
 
     editor.setPosition(pos)
   }, [typewriter, editor])
+
+  // Run a command chosen by clicking on a diagram, exactly as if it had been typed.
+  const [pendingCommand, setPendingCommand] = useAtom(pendingCommandAtom)
+  useEffect(() => {
+    if (!pendingCommand || processing || !hasEditor) return
+    setDeletedChat([])
+    setProcessing(true)
+    const end = editor.getModel()?.getFullModelRange().getEndPosition()
+    editor.executeEdits("typewriter", [{
+      range: monaco.Selection.fromPositions(end, end),
+      text: pendingCommand.trim() + "\n",
+      forceMoveMarkers: false
+    }])
+    setPendingCommand(null)
+    loadGoals(rpcSess, uri, worldId!, levelId!, setProof, setCrashed)
+  }, [pendingCommand, processing, hasEditor, editor])
 
   const [{ isSuggestionsMobileMode }] = useAtom(preferencesAtom)
 

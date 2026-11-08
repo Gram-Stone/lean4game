@@ -40,6 +40,9 @@ export const codeAtom = atom(
 
 export const typewriterContentAtom = atom<string>("")
 
+/** A command chosen by clicking on a diagram, waiting to be run by the typewriter. */
+export const pendingCommandAtom = atom<string | null>(null)
+
 export const selectionsAtom = atom(
   get => {
     const levelProgress = get(levelProgressAtom)

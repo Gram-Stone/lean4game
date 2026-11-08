@@ -34,6 +34,9 @@ import { DocumentPosition } from '../../../../node_modules/vscode-lean4/lean4-in
 import { UserWidgetInstance, Widget_getWidgets, RpcSessionAtPos } from '@leanprover/infoview-api';
 import { PanelWidgetDisplay } from '../../../../node_modules/vscode-lean4/lean4-infoview/src/infoview/userWidget';
 import { EnvPosContext } from '../../widgetDeps/infoview';
+import { DiagramMoves } from './diagramMoves';
+import { pendingCommandAtom } from '../../store/editor-atoms';
+import { levelInfoAtom as levelInfoQueryAtom } from '../../store/query-atoms';
 import { DiagnosticSeverity } from 'vscode-languageclient';
 import { useTranslation } from 'react-i18next';
 import path from 'path';
@@ -495,6 +498,19 @@ export function TypewriterInterface() {
 
   const rpcSess = useRpcSessionAtPos({uri: effectiveUri, line: 0, character: 0})
 
+  // Clicking on diagrams is available once the level unlocks `diag_rw`.
+  const [{ data: clickLevelInfo }] = useAtom(levelInfoQueryAtom)
+  const [clickInventory] = useAtom(inventoryAtom)
+  const [pendingCommand, setPendingCommand] = useAtom(pendingCommandAtom)
+  const clickRules = React.useMemo(() => {
+    const unlocked = (t: any) => t && !t.disabled && (!t.locked || (clickInventory ?? []).includes(t.name))
+    const diagRw = clickLevelInfo?.tactics?.find((t: any) => t.name === 'diag_rw')
+    if (!unlocked(diagRw)) return null
+    const lemmas = (clickLevelInfo?.lemmas ?? []).filter(unlocked)
+    return { rules: lemmas.map((t: any) => t.name),
+             names: new Map<string, string>(lemmas.map((t: any) => [t.name, t.displayName])) }
+  }, [clickLevelInfo, clickInventory])
+
   React.useEffect(() => {
     if (!effectiveUri) {
       return
@@ -656,7 +672,11 @@ export function TypewriterInterface() {
                   {!(isLastStepWithErrors(proof, i)) &&
                     <GoalsTabs proofStep={step} last={i == proof?.steps.length - (lastStepHasErrors(proof) ? 2 : 1)} onClick={toggleSelectStep(i)} onGoalChange={i == proof?.steps.length - (lastStepHasErrors(proof) ? 2 : 1) ? (n) => setDisableInput(n > 0) : (n) => {}}/>
                   }
-                  {i == proof?.steps.length - (lastStepHasErrors(proof) ? 2 : 1) && model &&
+                  {i == proof?.steps.length - (lastStepHasErrors(proof) ? 2 : 1) && model && clickRules && step.goals.length > 0 &&
+                    <DiagramMoves rpcSess={rpcSess} goal={step.goals[0].goal} rules={clickRules.rules}
+                      ruleNames={clickRules.names} onMove={setPendingCommand} disabled={!!pendingCommand} />
+                  }
+                  {i == proof?.steps.length - (lastStepHasErrors(proof) ? 2 : 1) && model && !clickRules &&
                     <StepWidgets rpcSess={rpcSess}
                       pos={{ uri: effectiveUri, line: model.getLineCount() - 1,
                              character: model.getLineMaxColumn(model.getLineCount()) - 1 }}
