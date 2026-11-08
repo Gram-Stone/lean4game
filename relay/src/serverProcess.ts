@@ -4,6 +4,7 @@ import { IncomingMessage } from 'http';
 import * as jsonrpcserver from 'vscode-ws-jsonrpc/server';
 import fs from 'fs';
 import path from 'path';
+import { pathToFileURL } from 'url';
 
 type Tag = { owner: string; repo: string; };
 export type GameSession = {
@@ -184,6 +185,11 @@ export class GameManager {
 
     const PROOF_START_LINE = 2
 
+    // A proper file URI for the game's Metadata file. Building it by hand (`file://${gameDir}/...`)
+    // breaks on Windows, where gameDir is `C:\Users\...`: the result has backslashes and `C:`
+    // reads as a host name, so Lean can't place the file in the game's project.
+    const metadataUri = pathToFileURL(path.join(gameDir, 'Game', 'Metadata.lean')).href
+
     const gameDataPath = path.join(gameDir, '.lake', 'gamedata', `game.json`)
     const gameData = JSON.parse(fs.readFileSync(gameDataPath, 'utf8'))
 
@@ -218,7 +224,7 @@ export class GameManager {
         worldId = path.basename(pathParts.dir)
         levelId = pathParts.name
 
-        replaceUri(message, `file://${gameDir}/Game/Metadata.lean`)
+        replaceUri(message, metadataUri)
 
         // Read level data from JSON file
         const levelDataPath = path.join(gameDir, '.lake', 'gamedata', `level__${worldId}__${levelId}.json`)
@@ -241,7 +247,7 @@ export class GameManager {
           `(inventory := [${inventory.map(s => JSON.stringify(s)).join(',')}]) ` +
           `:= by\n${content}\n`
       } else {
-        replaceUri(message, `file://${gameDir}/Game/Metadata.lean`)
+        replaceUri(message, metadataUri)
       }
 
       shiftLines(message, +PROOF_START_LINE)
